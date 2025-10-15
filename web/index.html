@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kubernetes Object Explorer</title>
+    <style>
+        /* CSS Variables for theming */
+        :root {
+            --primary-blue: #3498db;
+            --primary-blue-dark: #2980b9;
+            --secondary-gray: #34495e;
+            --light-gray: #ecf0f1;
+            --medium-gray: #bdc3c7;
+            --dark-gray: #2c3e50;
+            --success-green: #27ae60;
+            --warning-orange: #f39c12;
+            --error-red: #e74c3c;
+            --white: #ffffff;
+            --text-primary: #2c3e50;
+            --text-secondary: #7f8c8d;
+            --border-color: #ddd;
+            --shadow: 0 2px 4px rgba(0,0,0,0.1);
+            --shadow-hover: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        /* Dark theme variables */
+        .dark-theme {
+            --primary-blue: #5dade2;
+            --primary-blue-dark: #3498db;
+            --secondary-gray: #566573;
+            --light-gray: #2c3e50;
+            --medium-gray: #34495e;
+            --dark-gray: #ecf0f1;
+            --white: #1e2329;
+            --text-primary: #ecf0f1;
+            --text-secondary: #bdc3c7;
+            --border-color: #444;
+            --shadow: 0 2px 4px rgba(0,0,0,0.3);
+            --shadow-hover: 0 4px 8px rgba(0,0,0,0.4);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--light-gray);
+            color: var(--text-primary);
+            line-height: 1.6;
+            transition: all 0.3s ease;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark));
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .header h1 {
+            font-size: 2.2em;
+            font-weight: 300;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header .subtitle {
+            font-size: 1.1em;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* Controls Panel */
+        .controls-panel {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+        }
+
+        .controls-row {
+            display: flex;
+            gap: 25px;
+            align-items: end;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            min-width: 200px;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        select, input[type="text"] {
+            padding: 12px 15px;
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            background: var(--white);
+            color: var(--text-primary);
+            transition: all 0.2s ease;
+        }
+
+        select:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 20px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            transform: scale(1.2);
+        }
+
+        .action-button {
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .action-button:hover {
+            background: var(--primary-blue-dark);
+            transform: translateY(-1px);
+        }
+
+        .action-button:disabled {
+            background: var(--medium-gray);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Data Table */
+        .data-section {
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        .data-header {
+            background: var(--secondary-gray);
+            color: white;
+            padding: 20px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .data-title {
+            font-size: 1.3em;
+            font-weight: 500;
+        }
+
+        .data-stats {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #f8f9fa;
+        }
+
+        .dark-theme thead {
+            background: #34495e;
+        }
+
+        th {
+            padding: 15px 20px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 3px solid var(--border-color);
+        }
+
+        td {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+
+        tbody tr {
+            transition: background-color 0.2s ease;
+        }
+
+        tbody tr:hover {
+            background-color: rgba(52, 152, 219, 0.05);
+        }
+
+        .resource-name {
+            font-weight: 600;
+            color: var(--primary-blue);
+        }
+
+        .api-group {
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .api-group:empty::before {
+            content: "core";
+            opacity: 0.7;
+        }
+
+        .count-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 40px;
+            height: 28px;
+            background: var(--primary-blue);
+            color: white;
+            border-radius: 14px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .count-badge.zero {
+            background: var(--medium-gray);
+        }
+
+        .count-badge.high {
+            background: var(--warning-orange);
+        }
+
+        .action-btn {
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-right: 5px;
+            transition: all 0.2s ease;
+        }
+
+        .action-btn:hover {
+            background: var(--primary-blue-dark);
+        }
+
+        .action-btn:disabled {
+            background: var(--medium-gray);
+            cursor: not-allowed;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        .empty-state-title {
+            font-size: 1.5em;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+
+        .empty-state-subtitle {
+            font-size: 1.1em;
+        }
+
+        /* Loading state */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            gap: 15px;
+        }
+
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid var(--border-color);
+            border-top: 3px solid var(--primary-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Modal for details */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal {
+            background: var(--white);
+            border-radius: 12px;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            background: var(--secondary-gray);
+            color: white;
+            padding: 20px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background 0.2s ease;
+        }
+
+        .modal-close:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .modal-body {
+            padding: 25px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 20px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            overflow-x: auto;
+            white-space: pre;
+        }
+
+        .dark-theme .code-block {
+            background: #2c3e50;
+            border-color: #444;
+        }
+
+        /* Breadcrumb navigation */
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .breadcrumb-item {
+            color: white;
+            text-decoration: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .breadcrumb-item:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .breadcrumb-separator {
+            color: rgba(255,255,255,0.6);
+        }
+
+        .breadcrumb-current {
+            font-weight: bold;
+            opacity: 0.8;
+        }
+
+        /* Back button */
+        .back-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 15px;
+            transition: all 0.2s ease;
+        }
+
+        .back-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* YAML syntax highlighting */
+        .yaml-key {
+            color: #0066cc;
+            font-weight: bold;
+        }
+
+        .yaml-string {
+            color: #d14;
+        }
+
+        .yaml-number {
+            color: #099;
+        }
+
+        .yaml-boolean {
+            color: #d14;
+            font-weight: bold;
+        }
+
+        .yaml-null {
+            color: #999;
+            font-style: italic;
+        }
+
+        .yaml-comment {
+            color: #998;
+            font-style: italic;
+        }
+
+        .dark-theme .yaml-key {
+            color: #5dade2;
+        }
+
+        .dark-theme .yaml-string {
+            color: #98c379;
+        }
+
+        .dark-theme .yaml-number {
+            color: #d19a66;
+        }
+
+        .dark-theme .yaml-boolean {
+            color: #e06c75;
+        }
+
+        .dark-theme .yaml-null {
+            color: #abb2bf;
+        }
+
+        .dark-theme .yaml-comment {
+            color: #5c6370;
+        }
+
+        /* Object list view */
+        .object-list {
+            margin-top: 20px;
+        }
+
+        .object-item {
+            background: var(--white);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+
+        .object-item:hover {
+            box-shadow: var(--shadow-hover);
+        }
+
+        .object-header {
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .dark-theme .object-header {
+            background: #2c3e50;
+        }
+
+        .object-name {
+            font-weight: 600;
+            color: var(--primary-blue);
+        }
+
+        .object-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .controls-row {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .control-group {
+                min-width: auto;
+            }
+
+            .table-container {
+                font-size: 14px;
+            }
+
+            th, td {
+                padding: 10px 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div>
+                <h1>🏗️ Kubernetes Object Explorer</h1>
+                <div class="subtitle">Professional cluster resource monitoring and management</div>
+            </div>
+            <div class="header-controls">
+                <button class="btn" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+                <button class="btn" onclick="refreshData()" title="Refresh data">🔄</button>
+            </div>
+        </header>
+
+        <div class="controls-panel">
+            <div class="controls-row">
+                <div class="control-group">
+                    <label for="namespaceSelect">Namespace</label>
+                    <select id="namespaceSelect" onchange="onNamespaceChange()">
+                        <option value="">Select a namespace...</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="resourceFilter">Filter Resources</label>
+                    <input type="text" id="resourceFilter" placeholder="Type to filter resources..." oninput="onFilterChange()">
+                </div>
+                
+                <div class="control-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="onlyPopulated" onchange="onFilterChange()">
+                        <label for="onlyPopulated">Show only populated resources</label>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <button class="action-button" id="exportBtn" onclick="exportCSV()" disabled>
+                        📤 Export CSV
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="data-section">
+            <div class="data-header">
+                <div class="data-title" id="dataTitle">Kubernetes Resources</div>
+                <div class="data-stats" id="dataStats">No namespace selected</div>
+            </div>
+            
+            <div id="tableContainer">
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-state-icon">🗂️</div>
+                    <div class="empty-state-title">Ready to Explore</div>
+                    <div class="empty-state-subtitle">Select a namespace to view its resources</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Details Modal -->
+    <div class="modal-overlay" id="detailsModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Resource Details</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="modalContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentNamespace = '';
+        let allResources = [];
+        let filteredResources = [];
+        let currentView = 'resources'; // 'resources' or 'objects'
+        let currentResourceName = '';
+        let currentObjects = [];
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTheme();
+            loadNamespaces();
+        });
+
+        // Load available namespaces
+        async function loadNamespaces() {
+            const select = document.getElementById('namespaceSelect');
+            
+            try {
+                select.innerHTML = '<option value="">Loading namespaces...</option>';
+                const response = await fetch('/api/namespaces');
+                const data = await response.json();
+                
+                select.innerHTML = '<option value="">Select a namespace...</option>';
+                data.namespaces.forEach(namespace => {
+                    const option = document.createElement('option');
+                    option.value = namespace;
+                    option.textContent = namespace;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading namespaces:', error);
+                select.innerHTML = '<option value="">Error loading namespaces</option>';
+            }
+        }
+
+        // Handle namespace selection change
+        async function onNamespaceChange() {
+            const select = document.getElementById('namespaceSelect');
+            currentNamespace = select.value;
+            
+            // Reset view state when changing namespace
+            currentView = 'resources';
+            currentResourceName = '';
+            currentObjects = [];
+            
+            if (currentNamespace) {
+                await loadResources(currentNamespace);
+                document.getElementById('exportBtn').disabled = false;
+            } else {
+                showEmptyState();
+                document.getElementById('exportBtn').disabled = true;
+            }
+        }
+
+        // Load resources for selected namespace
+        async function loadResources(namespace) {
+            const container = document.getElementById('tableContainer');
+            
+            try {
+                // Show loading state
+                container.innerHTML = '<div class="loading"><div class="spinner"></div><span>Loading resources...</span></div>';
+                
+                const response = await fetch(`/api/resources/${namespace}`);
+                const data = await response.json();
+                
+                allResources = data.resources || [];
+                updateDisplay();
+                
+            } catch (error) {
+                console.error('Error loading resources:', error);
+                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">❌</div><div class="empty-state-title">Error Loading Resources</div><div class="empty-state-subtitle">${error.message}</div></div>`;
+            }
+        }
+
+        // Handle filter changes
+        function onFilterChange() {
+            updateDisplay();
+        }
+
+        // Update the display based on current filters
+        function updateDisplay() {
+            // If we're in object view, go back to resources view when filtering
+            if (currentView === 'objects') {
+                goBackToResources();
+                return;
+            }
+            
+            const filter = document.getElementById('resourceFilter').value.toLowerCase();
+            const onlyPopulated = document.getElementById('onlyPopulated').checked;
+            
+            filteredResources = allResources.filter(resource => {
+                const matchesFilter = !filter || 
+                    resource.name.toLowerCase().includes(filter) ||
+                    (resource.fullName && resource.fullName.toLowerCase().includes(filter));
+                    
+                const matchesPopulated = !onlyPopulated || resource.count > 0;
+                
+                return matchesFilter && matchesPopulated;
+            });
+            
+            renderTable();
+        }
+
+        // Render the resources table
+        function renderTable() {
+            // Don't render resources table if we're in object view
+            if (currentView === 'objects') {
+                return;
+            }
+            
+            const container = document.getElementById('tableContainer');
+            
+            if (filteredResources.length === 0) {
+                const hasFilter = document.getElementById('resourceFilter').value || 
+                                document.getElementById('onlyPopulated').checked;
+                
+                if (hasFilter) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🔍</div>
+                            <div class="empty-state-title">No Matching Resources</div>
+                            <div class="empty-state-subtitle">Try adjusting your filters</div>
+                        </div>`;
+                } else {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📦</div>
+                            <div class="empty-state-title">No Resources Found</div>
+                            <div class="empty-state-subtitle">This namespace appears to be empty</div>
+                        </div>`;
+                }
+                updateStats(0, 0);
+                return;
+            }
+            
+            const totalObjects = filteredResources.reduce((sum, r) => sum + r.count, 0);
+            
+            const tableHTML = `
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Resource Type</th>
+                                <th>API Group</th>
+                                <th>Count</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filteredResources.map(resource => `
+                                <tr>
+                                    <td class="resource-name">
+                                        ${resource.count > 0 ? 
+                                            `<a href="#" onclick="viewDetails('${resource.name}'); return false;" style="color: var(--primary-blue); text-decoration: none;">${resource.displayName || resource.name}</a>` :
+                                            `${resource.displayName || resource.name}`
+                                        }
+                                    </td>
+                                    <td class="api-group">${getApiGroup(resource)}</td>
+                                    <td>
+                                        <span class="count-badge ${getCountClass(resource.count)}">
+                                            ${resource.count}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button class="action-btn" 
+                                                onclick="exportResource('${resource.name}')" 
+                                                ${resource.count === 0 ? 'disabled' : ''}>
+                                            📄 Export
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            container.innerHTML = tableHTML;
+            updateStats(filteredResources.length, totalObjects);
+        }
+
+        // Get API group for display
+        function getApiGroup(resource) {
+            if (resource.fullName && resource.fullName.includes('.')) {
+                const parts = resource.fullName.split('.');
+                return parts.slice(1).join('.');
+            }
+            return '';
+        }
+
+        // Get CSS class for count badge
+        function getCountClass(count) {
+            if (count === 0) return 'zero';
+            if (count > 50) return 'high';
+            return '';
+        }
+
+        // Update statistics display
+        function updateStats(resourceCount, objectCount) {
+            const statsElement = document.getElementById('dataStats');
+            const titleElement = document.getElementById('dataTitle');
+            
+            if (currentNamespace) {
+                titleElement.textContent = `Resources in "${currentNamespace}"`;
+                statsElement.textContent = `${resourceCount} types • ${objectCount} objects`;
+            } else {
+                titleElement.textContent = 'Kubernetes Resources';
+                statsElement.textContent = 'No namespace selected';
+            }
+        }
+
+        // Show empty state
+        function showEmptyState() {
+            const container = document.getElementById('tableContainer');
+            container.innerHTML = `
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-state-icon">🗂️</div>
+                    <div class="empty-state-title">Ready to Explore</div>
+                    <div class="empty-state-subtitle">Select a namespace to view its resources</div>
+                </div>
+            `;
+            updateStats(0, 0);
+        }
+
+        // View resource details - drill down to object list
+        async function viewDetails(resourceName) {
+            if (!currentNamespace || !resourceName) return;
+            
+            try {
+                const container = document.getElementById('tableContainer');
+                container.innerHTML = '<div class="loading"><div class="spinner"></div><span>Loading objects...</span></div>';
+                
+                const response = await fetch(`/api/objects/${currentNamespace}/${resourceName}`);
+                const data = await response.json();
+                
+                currentView = 'objects';
+                currentResourceName = resourceName;
+                currentObjects = data.objects || [];
+                
+                // Debug log to see object structure
+                console.log('Loaded objects:', currentObjects);
+                if (currentObjects.length > 0) {
+                    console.log('First object structure:', currentObjects[0]);
+                }
+                
+                renderObjectList();
+                
+            } catch (error) {
+                console.error('Error loading resource details:', error);
+                const container = document.getElementById('tableContainer');
+                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">❌</div><div class="empty-state-title">Error Loading Objects</div><div class="empty-state-subtitle">${error.message}</div></div>`;
+            }
+        }
+
+        // Render list of objects for a resource type
+        function renderObjectList() {
+            const container = document.getElementById('tableContainer');
+            const titleElement = document.getElementById('dataTitle');
+            const statsElement = document.getElementById('dataStats');
+            
+            // Update header with breadcrumb
+            titleElement.innerHTML = `
+                <div class="breadcrumb">
+                    <button class="back-btn" onclick="goBackToResources()">← Back</button>
+                    <span class="breadcrumb-item" onclick="goBackToResources()">Resources</span>
+                    <span class="breadcrumb-separator">/</span>
+                    <span class="breadcrumb-current">${currentResourceName}</span>
+                </div>
+            `;
+            
+            statsElement.textContent = `${currentObjects.length} objects`;
+            
+            if (currentObjects.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📦</div>
+                        <div class="empty-state-title">No Objects Found</div>
+                        <div class="empty-state-subtitle">This resource type has no objects in ${currentNamespace}</div>
+                    </div>`;
+                return;
+            }
+            
+            const objectsHTML = currentObjects.map((obj, index) => {
+                // Handle different object structures
+                let objectName = 'Unnamed';
+                let createdDate = 'Unknown';
+                let objectNamespace = '';
+                
+                if (obj.metadata) {
+                    objectName = obj.metadata.name || 'Unnamed';
+                    if (obj.metadata.creationTimestamp) {
+                        createdDate = new Date(obj.metadata.creationTimestamp).toLocaleString();
+                    }
+                    if (obj.metadata.namespace) {
+                        objectNamespace = obj.metadata.namespace;
+                    }
+                } else if (obj.name) {
+                    // Fallback if metadata is at root level
+                    objectName = obj.name;
+                    if (obj.creationTimestamp) {
+                        createdDate = new Date(obj.creationTimestamp).toLocaleString();
+                    }
+                    if (obj.namespace) {
+                        objectNamespace = obj.namespace;
+                    }
+                }
+                
+                return `
+                    <div class="object-item">
+                        <div class="object-header" onclick="viewObjectDetails(${index})">
+                            <div>
+                                <div class="object-name">${objectName}</div>
+                                <div class="object-meta">
+                                    Created: ${createdDate}
+                                    ${objectNamespace ? `• Namespace: ${objectNamespace}` : ''}
+                                </div>
+                            </div>
+                            <div>
+                                <button class="action-btn" onclick="event.stopPropagation(); viewObjectDetails(${index})">
+                                    📋 View Details
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            container.innerHTML = `<div class="object-list">${objectsHTML}</div>`;
+        }
+
+        // Go back to resources view
+        function goBackToResources() {
+            currentView = 'resources';
+            currentResourceName = '';
+            currentObjects = [];
+            
+            const titleElement = document.getElementById('dataTitle');
+            titleElement.textContent = `Resources in "${currentNamespace}"`;
+            
+            renderTable();
+        }
+
+        // View individual object details in modal
+        async function viewObjectDetails(objectIndex) {
+            const obj = currentObjects[objectIndex];
+            if (!obj) return;
+            
+            // Extract object name using the same logic as the list display
+            let objectName = 'Unnamed';
+            if (obj.metadata && obj.metadata.name) {
+                objectName = obj.metadata.name;
+            } else if (obj.name) {
+                objectName = obj.name;
+            }
+            
+            const modal = document.getElementById('detailsModal');
+            const title = document.getElementById('modalTitle');
+            const content = document.getElementById('modalContent');
+            
+            title.textContent = `${objectName} (${currentResourceName})`;
+            
+            try {
+                // Show loading state
+                content.innerHTML = '<div class="loading"><div class="spinner"></div><span>Loading object details...</span></div>';
+                modal.style.display = 'flex';
+                
+                // Fetch full raw object details from the server
+                const response = await fetch(`/api/object-raw/${currentNamespace}/${currentResourceName}/${objectName}`);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch object details: ${response.statusText}`);
+                }
+                
+                const fullObject = await response.json();
+                console.log('Full raw object from server:', fullObject);
+                
+                // Convert to YAML and apply syntax highlighting
+                const yaml = jsonToYaml(fullObject);
+                console.log('Generated YAML:', yaml);
+                const highlightedYaml = highlightYaml(yaml);
+                console.log('Highlighted YAML:', highlightedYaml);
+                content.innerHTML = `<div class="code-block">${highlightedYaml}</div>`;
+                
+            } catch (error) {
+                console.error('Error loading object details:', error);
+                // Fallback to using the simplified object data
+                console.log('Falling back to simplified object:', obj);
+                const yaml = jsonToYaml(obj);
+                const highlightedYaml = highlightYaml(yaml);
+                content.innerHTML = `<div class="code-block">${highlightedYaml}</div>`;
+                
+                // Show error message
+                const errorMsg = document.createElement('div');
+                errorMsg.style.color = 'red';
+                errorMsg.style.marginBottom = '10px';
+                errorMsg.textContent = `Warning: Could not load full object details (${error.message}). Showing simplified view.`;
+                content.insertBefore(errorMsg, content.firstChild);
+            }
+        }
+
+        // Export resource as CSV
+        async function exportResource(resourceName) {
+            if (!currentNamespace || !resourceName) return;
+            
+            try {
+                const response = await fetch(`/api/objects/${currentNamespace}/${resourceName}`);
+                const data = await response.json();
+                
+                if (data.objects && data.objects.length > 0) {
+                    const csv = convertToCSV(data.objects);
+                    downloadFile(`${currentNamespace}-${resourceName}.csv`, csv);
+                }
+            } catch (error) {
+                console.error('Error exporting resource:', error);
+                alert(`Error exporting resource: ${error.message}`);
+            }
+        }
+
+        // Export all resources as CSV
+        async function exportCSV() {
+            if (!currentNamespace) return;
+            
+            try {
+                const response = await fetch(`/api/export/${currentNamespace}`);
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${currentNamespace}-resources.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('Error exporting CSV:', error);
+                alert(`Error exporting CSV: ${error.message}`);
+            }
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('detailsModal').style.display = 'none';
+        }
+
+        // Close modal when clicking overlay
+        document.getElementById('detailsModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        // Refresh all data
+        async function refreshData() {
+            await loadNamespaces();
+            if (currentNamespace) {
+                await loadResources(currentNamespace);
+            }
+        }
+
+        // Theme management
+        function toggleTheme() {
+            document.body.classList.toggle('dark-theme');
+            const isDark = document.body.classList.contains('dark-theme');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            
+            const themeButton = document.querySelector('.header-controls .btn');
+            themeButton.textContent = isDark ? '☀️' : '🌙';
+        }
+
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark-theme');
+                const themeButton = document.querySelector('.header-controls .btn');
+                themeButton.textContent = '☀️';
+            }
+        }
+
+        // YAML conversion and highlighting
+        function jsonToYaml(obj, indent = 0) {
+            const spaces = '  '.repeat(indent);
+            
+            if (obj === null || obj === undefined) {
+                return 'null';
+            }
+            
+            if (typeof obj === 'string') {
+                // Handle empty strings
+                if (obj === '') {
+                    return '""';
+                }
+                
+                // Check if the string needs quoting
+                const needsQuoting = /[:\[\]{}|>@`"'\n\r\t]|^\s|\s$|^[0-9]/.test(obj) || 
+                                   obj === 'true' || obj === 'false' || obj === 'null' ||
+                                   obj.includes('#') || obj.includes('-') || obj.includes('?');
+                
+                if (needsQuoting) {
+                    return `"${obj.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t')}"`;
+                }
+                
+                return obj;
+            }
+            
+            if (typeof obj === 'number' || typeof obj === 'boolean') {
+                return String(obj);
+            }
+            
+            if (Array.isArray(obj)) {
+                if (obj.length === 0) {
+                    return '[]';
+                }
+                
+                let result = '';
+                obj.forEach((item, index) => {
+                    result += '\n' + spaces + '- ';
+                    
+                    if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
+                        const itemYaml = jsonToYaml(item, indent + 1);
+                        // Remove the first newline and leading spaces for the first property
+                        const lines = itemYaml.split('\n').filter(line => line.trim());
+                        if (lines.length > 0) {
+                            result += lines[0].trim();
+                            if (lines.length > 1) {
+                                result += '\n' + lines.slice(1).map(line => spaces + '  ' + line.trim()).join('\n');
+                            }
+                        }
+                    } else {
+                        result += jsonToYaml(item, indent + 1);
+                    }
+                });
+                return result;
+            }
+            
+            if (typeof obj === 'object' && obj !== null) {
+                const keys = Object.keys(obj);
+                if (keys.length === 0) {
+                    return '{}';
+                }
+                
+                let result = '';
+                keys.forEach((key, index) => {
+                    result += '\n' + spaces + key + ':';
+                    
+                    const value = obj[key];
+                    if (value === null || value === undefined) {
+                        result += ' null';
+                    } else if (typeof value === 'object' && value !== null) {
+                        if (Array.isArray(value) && value.length === 0) {
+                            result += ' []';
+                        } else if (!Array.isArray(value) && Object.keys(value).length === 0) {
+                            result += ' {}';
+                        } else {
+                            result += jsonToYaml(value, indent + 1);
+                        }
+                    } else {
+                        result += ' ' + jsonToYaml(value, indent + 1);
+                    }
+                });
+                return result;
+            }
+            
+            return String(obj);
+        }
+
+        function highlightYaml(yaml) {
+            if (!yaml || typeof yaml !== 'string') {
+                return '';
+            }
+            
+            // Split into lines and process each line individually
+            const lines = yaml.split('\n');
+            const highlightedLines = lines.map(line => {
+                // Escape HTML first for this line
+                let escapedLine = line
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+                
+                // Skip empty lines
+                if (!escapedLine.trim()) {
+                    return escapedLine;
+                }
+                
+                // Apply highlighting patterns
+                let highlighted = escapedLine;
+                
+                // 1. Keys (word followed by colon at start of line)
+                highlighted = highlighted.replace(/^(\s*)([a-zA-Z0-9_\-\.\/\[\]]+)(\s*:)/, 
+                    '$1<span class="yaml-key">$2</span>$3');
+                
+                // 2. Array dashes
+                highlighted = highlighted.replace(/^(\s*)(-\s)/, 
+                    '$1<span class="yaml-key">-</span> ');
+                
+                // 3. Quoted strings
+                highlighted = highlighted.replace(/&quot;([^&]*)&quot;/g, 
+                    '<span class="yaml-string">&quot;$1&quot;</span>');
+                
+                // 4. Numbers at end of line
+                highlighted = highlighted.replace(/(\s|:)(\s*)(-?\d+(?:\.\d+)?)(\s*)$/, 
+                    '$1$2<span class="yaml-number">$3</span>$4');
+                
+                // 5. Booleans at end of line
+                highlighted = highlighted.replace(/(\s|:)(\s*)(true|false)(\s*)$/, 
+                    '$1$2<span class="yaml-boolean">$3</span>$4');
+                
+                // 6. Null values at end of line
+                highlighted = highlighted.replace(/(\s|:)(\s*)(null)(\s*)$/, 
+                    '$1$2<span class="yaml-null">$3</span>$4');
+                
+                // 7. Empty collections
+                highlighted = highlighted.replace(/(\s|:)(\s*)(\{\}|\[\])(\s*)$/, 
+                    '$1$2<span class="yaml-null">$3</span>$4');
+                
+                return highlighted;
+            });
+            
+            return highlightedLines.join('\n');
+        }
+
+        // Utility functions
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function convertToCSV(objects) {
+            if (!objects || objects.length === 0) return '';
+            
+            const headers = Object.keys(objects[0]);
+            const csvContent = [
+                headers.join(','),
+                ...objects.map(obj => 
+                    headers.map(header => 
+                        JSON.stringify(obj[header] || '')
+                    ).join(',')
+                )
+            ].join('\n');
+            
+            return csvContent;
+        }
+
+        function downloadFile(filename, content) {
+            const blob = new Blob([content], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

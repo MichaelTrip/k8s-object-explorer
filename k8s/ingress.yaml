@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: k8s-object-explorer
+  labels:
+    app: k8s-object-explorer
+  annotations:
+    # For nginx-ingress
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    # For cert-manager (uncomment if using)
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: k8s-explorer.example.com  # Change this to your domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: k8s-object-explorer
+            port:
+              number: 80
+  # Uncomment for TLS/HTTPS
+  # tls:
+  # - hosts:
+  #   - k8s-explorer.example.com
+  #   secretName: k8s-explorer-tls

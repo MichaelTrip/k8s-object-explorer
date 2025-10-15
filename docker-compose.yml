@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  k8s-object-explorer:
+    image: ghcr.io/michaeltrip/k8s-object-explorer:latest
+    container_name: k8s-object-explorer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - DEBUG=false
+    volumes:
+      # Mount your kubeconfig for local development
+      - ${HOME}/.kube/config:/home/app/.kube/config:ro
+    networks:
+      - k8s-explorer
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/debug"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+networks:
+  k8s-explorer:
+    driver: bridge

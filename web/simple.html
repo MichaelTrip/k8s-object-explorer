@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Kubernetes Explorer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #2c3e50;
+        }
+
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        select, input, button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        .results {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .results-header {
+            padding: 15px 20px;
+            background: #34495e;
+            color: white;
+            font-weight: 600;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+
+        .error {
+            color: #e74c3c;
+            padding: 20px;
+            background: #fadbd8;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .count {
+            font-weight: bold;
+            color: #27ae60;
+        }
+
+        .count.zero {
+            color: #95a5a6;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+            flex: 1;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3498db;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .stats {
+                flex-direction: column;
+            }
+
+            table {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚢 Simple Kubernetes Explorer</h1>
+
+        <div class="controls">
+            <label>
+                Namespace:
+                <select id="namespaceSelect">
+                    <option value="">Select namespace...</option>
+                </select>
+            </label>
+
+            <label>
+                Search:
+                <input type="text" id="searchInput" placeholder="Filter resources...">
+            </label>
+
+            <label>
+                <input type="checkbox" id="populatedOnly"> Only show populated
+            </label>
+
+            <button id="loadButton">Load Resources</button>
+            <button id="refreshButton">↻ Refresh</button>
+        </div>
+
+        <div class="stats" id="stats" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-value" id="totalResources">0</div>
+                <div class="stat-label">Resources</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalObjects">0</div>
+                <div class="stat-label">Total Objects</div>
+            </div>
+        </div>
+
+        <div class="results">
+            <div class="results-header">
+                <span id="resultsTitle">Select a namespace to view resources</span>
+            </div>
+            <div id="resultsContent">
+                <div class="loading">👋 Welcome! Select a namespace above to get started.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class SimpleK8sExplorer {
+            constructor() {
+                this.currentNamespace = '';
+                this.allResources = [];
+                this.init();
+            }
+
+            async init() {
+                this.setupEventListeners();
+                await this.loadNamespaces();
+            }
+
+            setupEventListeners() {
+                document.getElementById('loadButton').addEventListener('click', () => this.loadResources());
+                document.getElementById('refreshButton').addEventListener('click', () => this.refreshData());
+                document.getElementById('namespaceSelect').addEventListener('change', (e) => {
+                    this.currentNamespace = e.target.value;
+                });
+                document.getElementById('searchInput').addEventListener('input', () => this.filterResources());
+                document.getElementById('populatedOnly').addEventListener('change', () => this.filterResources());
+            }
+
+            async loadNamespaces() {
+                try {
+                    const response = await fetch('/api/namespaces');
+                    const data = await response.json();
+                    
+                    const select = document.getElementById('namespaceSelect');
+                    select.innerHTML = '<option value="">Select namespace...</option>';
+                    
+                    data.namespaces.forEach(ns => {
+                        const option = document.createElement('option');
+                        option.value = ns;
+                        option.textContent = ns;
+                        select.appendChild(option);
+                    });
+                } catch (error) {
+                    this.showError('Failed to load namespaces: ' + error.message);
+                }
+            }
+
+            async loadResources() {
+                if (!this.currentNamespace) {
+                    alert('Please select a namespace first');
+                    return;
+                }
+
+                const button = document.getElementById('loadButton');
+                button.disabled = true;
+                button.textContent = 'Loading...';
+
+                try {
+                    this.showLoading('Loading resources...');
+                    
+                    const response = await fetch(`/api/resources/${this.currentNamespace}`);
+                    const data = await response.json();
+                    
+                    this.allResources = data.resources;
+                    this.updateStats(data.count, data.totalObjects);
+                    this.filterResources();
+                    
+                    document.getElementById('resultsTitle').textContent = 
+                        `Resources in namespace "${this.currentNamespace}"`;
+                        
+                } catch (error) {
+                    this.showError('Failed to load resources: ' + error.message);
+                } finally {
+                    button.disabled = false;
+                    button.textContent = 'Load Resources';
+                }
+            }
+
+            filterResources() {
+                const search = document.getElementById('searchInput').value.toLowerCase();
+                const populatedOnly = document.getElementById('populatedOnly').checked;
+
+                const filtered = this.allResources.filter(resource => {
+                    if (populatedOnly && resource.count === 0) return false;
+                    if (search && !resource.name.toLowerCase().includes(search) && 
+                        !resource.kind.toLowerCase().includes(search)) return false;
+                    return true;
+                });
+
+                this.displayResources(filtered);
+            }
+
+            displayResources(resources) {
+                const content = document.getElementById('resultsContent');
+                
+                if (resources.length === 0) {
+                    content.innerHTML = '<div class="loading">No resources found</div>';
+                    return;
+                }
+
+                const table = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Resource</th>
+                                <th>Kind</th>
+                                <th>API Group</th>
+                                <th>Count</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${resources.map(r => `
+                                <tr>
+                                    <td>${r.name}</td>
+                                    <td>${r.kind}</td>
+                                    <td>${r.apiGroup || 'core'}</td>
+                                    <td><span class="count ${r.count === 0 ? 'zero' : ''}">${r.count}</span></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                
+                content.innerHTML = table;
+            }
+
+            updateStats(resourceCount, objectCount) {
+                document.getElementById('totalResources').textContent = resourceCount;
+                document.getElementById('totalObjects').textContent = objectCount;
+                document.getElementById('stats').style.display = 'flex';
+            }
+
+            showLoading(message) {
+                document.getElementById('resultsContent').innerHTML = 
+                    `<div class="loading">${message}</div>`;
+            }
+
+            showError(message) {
+                document.getElementById('resultsContent').innerHTML = 
+                    `<div class="error">❌ ${message}</div>`;
+            }
+
+            async refreshData() {
+                await this.loadNamespaces();
+                if (this.currentNamespace) {
+                    await this.loadResources();
+                }
+            }
+        }
+
+        // Start the app when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new SimpleK8sExplorer();
+        });
+    </script>
+</body>
+</html>
