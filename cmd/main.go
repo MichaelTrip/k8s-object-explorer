@@ -16,12 +16,26 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// Version information - set via ldflags at build time
+var (
+	Version   = "dev"
+	BuildDate = "unknown"
+	GitCommit = "unknown"
+)
+
 type Server struct {
 	k8sClient *k8s.Client
 	debug     bool
 }
 
 func main() {
+	// Print version information
+	log.Printf("🚀 Kubernetes Object Explorer")
+	log.Printf("   Version: %s", Version)
+	log.Printf("   Build Date: %s", BuildDate)
+	log.Printf("   Git Commit: %s", GitCommit)
+	log.Println()
+
 	// Initialize Kubernetes client
 	k8sClient, err := k8s.NewClient("")
 	if err != nil {
@@ -84,7 +98,11 @@ func main() {
 
 func (s *Server) debugStatus(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
-		"debug": s.debug,
+		"debug":     s.debug,
+		"version":   Version,
+		"buildDate": BuildDate,
+		"gitCommit": GitCommit,
+		"status":    "ok",
 	}
 
 	if s.k8sClient != nil && s.debug {
