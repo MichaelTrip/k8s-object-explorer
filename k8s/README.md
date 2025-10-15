@@ -4,7 +4,8 @@ This directory contains Kubernetes manifests for deploying the k8s-object-explor
 
 ## Files
 
-- `deployment.yaml` - Application deployment with 3 replicas, RBAC, and health checks
+- `rbac.yaml` - ServiceAccount, ClusterRole, and ClusterRoleBinding (read-only access)
+- `deployment.yaml` - Application deployment with 3 replicas, RBAC, and health checks (includes RBAC inline)
 - `service.yaml` - ClusterIP service to expose the application internally
 - `ingress.yaml` - Ingress resource for external access
 
@@ -16,18 +17,27 @@ This directory contains Kubernetes manifests for deploying the k8s-object-explor
 
 ## Quick Deploy
 
-Deploy all resources at once:
+### Option 1: All Resources (Recommended)
+Deploy all resources including RBAC at once:
 
 ```bash
 kubectl apply -f k8s/
 ```
 
-Or deploy individually:
+### Option 2: Selective Deployment
+Deploy individually for more control:
 
 ```bash
+# Option A: Use standalone RBAC file
+kubectl apply -f k8s/rbac.yaml
 kubectl apply -f k8s/deployment.yaml
 kubectl apply -f k8s/service.yaml
-kubectl apply -f k8s/ingress.yaml
+kubectl apply -f k8s/ingress.yaml  # Optional
+
+# Option B: deployment.yaml includes RBAC inline
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+kubectl apply -f k8s/ingress.yaml  # Optional
 ```
 
 ## Configuration
@@ -65,7 +75,46 @@ kubectl create namespace k8s-explorer
 kubectl apply -f k8s/ -n k8s-explorer
 ```
 
-**Note**: Update the `ClusterRoleBinding` namespace in `deployment.yaml` if using a custom namespace.
+**Note**: Update the `ClusterRoleBinding` namespace in `deployment.yaml` or `rbac.yaml` if using a custom namespace.
+
+## RBAC Permissions
+
+The application requires **read-only** access to discover and count resources across the cluster:
+
+### ServiceAccount
+- Name: `k8s-object-explorer`
+- Namespace: `default` (or custom namespace)
+
+### ClusterRole Permissions
+```yaml
+rules:
+  # Read access to all API resources for discovery
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["get", "list"]
+  
+  # Specific access to namespaces
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list"]
+  
+  # Access to API discovery endpoints
+  - nonResourceURLs: ["/api", "/api/*", "/apis", "/apis/*"]
+    verbs: ["get"]
+```
+
+### Why These Permissions?
+- **`get` and `list` on all resources**: Required to discover available API resources and count objects
+- **No write access**: Application is read-only and cannot modify any cluster resources
+- **Cluster-wide access**: Needed to discover resources across all namespaces
+- **API discovery**: Required to enumerate available resource types dynamically
+
+### Security Note
+While the permissions are cluster-wide, they are **read-only**. The application:
+- ✅ Cannot create, update, or delete any resources
+- ✅ Cannot access secrets' values (only lists that they exist)
+- ✅ Runs as non-root user (UID 1000)
+- ✅ Has dropped all Linux capabilities
 
 ## Accessing the Application
 
