@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.21-alpine AS builder
+FROM golang:1.27-alpine AS builder
 
 # Build arguments for version information
 ARG APP_VERSION=v1.0.0
